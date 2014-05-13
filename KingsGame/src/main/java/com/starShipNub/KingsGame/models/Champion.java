@@ -1,7 +1,11 @@
 package com.starShipNub.KingsGame.models;
 
 import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.List;
+import java.util.concurrent.ConcurrentHashMap;
+
+import com.starShipNub.KingsGame.utilities.StaticVariables;
 
 public class Champion extends Destroyable {
 	private String playerId;
@@ -13,9 +17,11 @@ public class Champion extends Destroyable {
 	private int currentMana;
 	private int maxMana;
 	private List<Attack> attacks = new ArrayList<Attack>();
+	private ConcurrentHashMap<String, StatusEffect> statusEffects = new ConcurrentHashMap<String, StatusEffect>();
 
 	public final String getName() {
 		return name;
+
 	}
 
 	public final void setName(final String name) {
@@ -136,9 +142,16 @@ public class Champion extends Destroyable {
 		}
 	}
 
-	public boolean endTurn(Integer activePlayerId) {
+	public void newStatusEffect(String statusEffectName) {
+		for (StatusEffect e : StaticVariables.statusEffectCache) {
+			if (e.getName().equalsIgnoreCase(statusEffectName)) {
+				e.setDurationRemaining(e.getDuration());
+				this.statusEffects.put(e.getName(), e);
+			}
+		}
+	}
 
-		// TODO: Status effects
+	public boolean endTurn(Integer activePlayerId) {
 
 		// Cooldowns
 		for (Attack a : this.getAttacks()) {
@@ -156,6 +169,26 @@ public class Champion extends Destroyable {
 			this.setMovesRemaining(0);
 		} else {
 			this.setMovesRemaining(this.getMoveDistance());
+		}
+
+		// Status effects
+		Iterator<String> i = statusEffects.keySet().iterator();
+		while (i.hasNext()) {
+			String name = i.next();
+			StatusEffect se = statusEffects.get(name);
+			if (se.durationRemaining > 0) {
+				if (!se.execute(this)) {
+					// LOG FAILURE
+					// It would be cool if it also logged an ID of the failure
+					// and included it in the client error logs
+					// so they could reference like a bug status or something
+				}
+			}
+
+			se.durationRemaining--;
+			if (se.durationRemaining <= 0) {
+				statusEffects.remove(name);
+			}
 		}
 
 		// To live or Die?
